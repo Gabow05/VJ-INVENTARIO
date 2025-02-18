@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from utils.data_manager import load_data
 import os
+from PIL import Image
+import io
 
 st.set_page_config(
     page_title="Sistema de Inventario y POS",
@@ -13,7 +15,13 @@ st.set_page_config(
 # Cargar y mostrar el logo
 logo_path = "assets/logo.png"
 if os.path.exists(logo_path):
-    st.sidebar.image(logo_path, width=200)
+    try:
+        with open(logo_path, "rb") as f:
+            logo_bytes = f.read()
+        st.sidebar.image(logo_bytes, width=200, caption="Variedades Juancho La Octava")
+    except Exception as e:
+        st.sidebar.title("Variedades Juancho La Octava")
+        print(f"Error loading logo: {e}")
 else:
     st.sidebar.title("Variedades Juancho La Octava")
 

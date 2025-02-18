@@ -3,6 +3,7 @@ import os
 from .models import get_db, Producto, Venta, init_db
 from datetime import datetime
 from sqlalchemy.exc import SQLAlchemyError
+import tempfile
 
 def initialize_database():
     """Initialize database and create tables"""
@@ -62,69 +63,68 @@ def save_data(df):
     finally:
         db.close()
 
-def import_file_to_db(file_path):
+def import_file_to_db(uploaded_file):
     """
     Import data from various file formats (CSV, Excel) to database
     """
-    file_extension = os.path.splitext(file_path)[1].lower()
-
-    # Lista de codificaciones para CSV
-    encodings = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1']
-
     try:
-        if file_extension in ['.xlsx', '.xls']:
-            print(f"Leyendo archivo Excel: {file_path}")
-            df = pd.read_excel(file_path)
-        else:  # Intentar leer como CSV con diferentes codificaciones
-            for encoding in encodings:
-                try:
-                    print(f"Intentando leer CSV con codificación: {encoding}")
-                    df = pd.read_csv(
-                        file_path,
-                        encoding=encoding,
-                        dtype={
-                            'producto': str,
-                            'categoria': str,
-                            'cantidad': str,  # Cambiado a str para manejar formato flexible
-                            'precio': str,    # Cambiado a str para manejar formato flexible
-                            'codigo': str
-                        }
-                    )
-                    break
-                except UnicodeDecodeError:
-                    print(f"Error de codificación con {encoding}")
-                    continue
-                except Exception as e:
-                    print(f"Error al procesar archivo con {encoding}: {str(e)}")
-                    continue
-            else:
-                print("No se pudo leer el archivo con ninguna codificación")
-                return False
+        file_extension = os.path.splitext(uploaded_file.name)[1].lower()
 
-        # Validar y limpiar columnas
-        required_columns = ['producto', 'categoria', 'cantidad', 'precio', 'codigo']
-        if not all(col in df.columns for col in required_columns):
-            print(f"Columnas requeridas no encontradas. Columnas presentes: {df.columns.tolist()}")
-            return False
+        # Save uploaded file to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+            temp_file.write(uploaded_file.getvalue())
+            temp_path = temp_file.name
 
-        # Limpiar datos
-        df = df.dropna(subset=required_columns)
-
-        # Convertir y limpiar tipos de datos
         try:
-            # Limpiar cantidad (remover caracteres no numéricos)
+            if file_extension in ['.xlsx', '.xls']:
+                print(f"Leyendo archivo Excel")
+                df = pd.read_excel(temp_path)
+            else:  # CSV
+                # Lista de codificaciones para CSV
+                encodings = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1']
+                for encoding in encodings:
+                    try:
+                        print(f"Intentando leer CSV con codificación: {encoding}")
+                        df = pd.read_csv(
+                            temp_path,
+                            encoding=encoding,
+                            dtype={
+                                'producto': str,
+                                'categoria': str,
+                                'cantidad': str,
+                                'precio': str,
+                                'codigo': str
+                            }
+                        )
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                    except Exception as e:
+                        print(f"Error con codificación {encoding}: {e}")
+                        continue
+                else:
+                    raise ValueError("No se pudo leer el archivo con ninguna codificación")
+
+            # Validar y limpiar columnas
+            required_columns = ['producto', 'categoria', 'cantidad', 'precio', 'codigo']
+            if not all(col in df.columns for col in required_columns):
+                raise ValueError(f"Columnas requeridas no encontradas. Columnas presentes: {df.columns.tolist()}")
+
+            # Limpiar datos
+            df = df.dropna(subset=required_columns)
+
+            # Convertir y limpiar tipos de datos
             df['cantidad'] = pd.to_numeric(df['cantidad'].str.replace(r'[^\d.-]', '', regex=True), errors='coerce')
             df['cantidad'] = df['cantidad'].fillna(0).astype(int)
 
-            # Limpiar precio (remover caracteres no numéricos excepto punto decimal)
             df['precio'] = pd.to_numeric(df['precio'].str.replace(r'[^\d.-]', '', regex=True), errors='coerce')
             df['precio'] = df['precio'].fillna(0).astype(float)
-        except Exception as e:
-            print(f"Error al convertir tipos de datos: {e}")
-            return False
 
-        print("Archivo procesado exitosamente")
-        return save_data(df)
+            return save_data(df)
+
+        finally:
+            # Limpiar archivo temporal
+            os.unlink(temp_path)
 
     except Exception as e:
         print(f"Error al procesar archivo: {str(e)}")
