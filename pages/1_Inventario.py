@@ -2,69 +2,96 @@ import streamlit as st
 import pandas as pd
 from utils.data_manager import load_data
 
-st.set_page_config(page_title="Inventario", page_icon="📦")
-
-def style_dataframe(df):
-    """Aplica estilos condicionales al DataFrame"""
-    def highlight_low_stock(val):
-        return 'background-color: #ffcdd2; color: #c62828' if val == 0 else ''
-
-    return df.style.applymap(highlight_low_stock, subset=['cantidad'])
+st.set_page_config(page_title="Inventario", page_icon="📦", layout="wide")
 
 def main():
     st.title("📦 Gestión de Inventario")
 
     # Load data
     df = load_data()
-
-    if df is None:
-        st.warning("No hay datos de inventario disponibles. Por favor, suba un archivo CSV en la sección de Configuración.")
+    if df is None or df.empty:
+        st.warning("No hay datos de inventario disponibles. Por favor, importe datos en la sección de Configuración.")
         return
 
-    # Search and filters
-    col1, col2 = st.columns([2,1])
+    # Búsqueda y filtros
+    col1, col2, col3 = st.columns([2, 1, 1])
+
     with col1:
-        search = st.text_input("🔍 Buscar producto", "")
+        search = st.text_input("🔍 Buscar por nombre o código", "")
+    with col2:
+        precio_min = st.number_input("Precio mínimo", 0.0, value=0.0, step=1000.0)
+    with col3:
+        precio_max = st.number_input("Precio máximo", 0.0, value=float(df['precio'].max()), step=1000.0)
 
-    # Filter data
-    filtered_df = df.copy()
+    # Aplicar filtros
+    mask = pd.Series(True, index=df.index)
+
     if search:
-        filtered_df = filtered_df[filtered_df['producto'].str.contains(search, case=False, na=False)]
+        search_mask = (
+            df['producto'].str.contains(search, case=False, na=False) |
+            df['codigo'].str.contains(search, case=False, na=False) |
+            df['referencia'].str.contains(search, case=False, na=False)
+        )
+        mask = mask & search_mask
 
-    # Display inventory table with styling
-    st.dataframe(
-        style_dataframe(filtered_df),
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "producto": st.column_config.TextColumn(
-                "Producto",
-                width="large"
-            ),
-            "referencia": "Referencia",
-            "cantidad": st.column_config.NumberColumn(
-                "Cantidad",
-                help="Productos con cantidad 0 se muestran en rojo"
-            ),
-            "precio": st.column_config.NumberColumn(
-                "Precio",
-                format="$%.2f"
-            ),
-            "codigo": "Código"
-        }
-    )
+    mask = mask & (df['precio'] >= precio_min) & (df['precio'] <= precio_max)
 
-    # Summary metrics
-    st.markdown("---")
-    col1, col2, col3 = st.columns(3)
+    filtered_df = df[mask]
+
+    # Mostrar métricas
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Total Productos", len(filtered_df))
     with col2:
         st.metric("Valor Total", f"${filtered_df['precio'].sum():,.2f}")
     with col3:
-        productos_agotados = len(filtered_df[filtered_df['cantidad'] == 0])
-        st.metric("Productos Agotados", productos_agotados, 
-                 delta_color="inverse")
+        st.metric("Productos Agotados", len(filtered_df[filtered_df['cantidad'] == 0]))
+    with col4:
+        st.metric("Precio Promedio", f"${filtered_df['precio'].mean():,.2f}")
+
+    # Mostrar tabla de inventario
+    st.dataframe(
+        filtered_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "producto": st.column_config.TextColumn(
+                "Producto",
+                width="large",
+            ),
+            "referencia": st.column_config.TextColumn(
+                "Referencia",
+                width="medium",
+            ),
+            "codigo": st.column_config.TextColumn(
+                "Código",
+                width="medium",
+            ),
+            "cantidad": st.column_config.NumberColumn(
+                "Cantidad",
+                help="Productos agotados se muestran en rojo",
+                format="%d",
+            ),
+            "precio": st.column_config.NumberColumn(
+                "Precio",
+                format="$%,.0f",
+            ),
+        }
+    )
+
+    # Mostrar estadísticas adicionales
+    st.markdown("### 📊 Resumen de Inventario")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("#### Top 5 Productos más caros")
+        top_expensive = filtered_df.nlargest(5, 'precio')[['producto', 'precio']]
+        st.dataframe(top_expensive, hide_index=True)
+
+    with col2:
+        st.markdown("#### Productos con stock bajo (menos de 5 unidades)")
+        low_stock = filtered_df[filtered_df['cantidad'] < 5][['producto', 'cantidad']]
+        st.dataframe(low_stock, hide_index=True)
 
 if __name__ == "__main__":
     main()

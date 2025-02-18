@@ -4,12 +4,10 @@ from sqlalchemy.orm import sessionmaker, relationship
 import os
 from datetime import datetime
 
-# Configuración de la URL de la base de datos con SSL
+# Configuración de la URL de la base de datos
 database_url = os.environ['DATABASE_URL']
-if "?" in database_url:
-    database_url += "&sslmode=require"
-else:
-    database_url += "?sslmode=require"
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
 
 Base = declarative_base()
 
@@ -19,25 +17,13 @@ class Producto(Base):
     id = Column(Integer, primary_key=True)
     codigo = Column(String, unique=True, nullable=False)
     nombre = Column(String, nullable=False)
-    categoria = Column(String, nullable=False)
+    referencia = Column(String)
     cantidad = Column(Integer, default=0)
     precio = Column(Float, nullable=False)
     fecha_actualizacion = Column(DateTime, default=datetime.utcnow)
 
-class Venta(Base):
-    __tablename__ = 'ventas'
-
-    id = Column(Integer, primary_key=True)
-    producto_id = Column(Integer, ForeignKey('productos.id'))
-    cantidad = Column(Integer, nullable=False)
-    precio_unitario = Column(Float, nullable=False)
-    total = Column(Float, nullable=False)
-    fecha = Column(DateTime, default=datetime.utcnow)
-
-    producto = relationship("Producto")
-
 # Configuración de la base de datos
-engine = create_engine(database_url, pool_pre_ping=True)
+engine = create_engine(database_url)
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 def init_db():

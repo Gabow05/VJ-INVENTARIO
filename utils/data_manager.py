@@ -1,13 +1,9 @@
 import pandas as pd
 import os
-from .models import get_db, Producto, Venta, init_db
+from .models import get_db, Producto, init_db
 from datetime import datetime
 from sqlalchemy.exc import SQLAlchemyError
 import tempfile
-
-def initialize_database():
-    """Initialize database and create tables"""
-    return init_db()
 
 def load_data():
     """
@@ -16,80 +12,68 @@ def load_data():
     db = get_db()
     try:
         productos = db.query(Producto).all()
-        data = [{
-            'producto': p.nombre,
-            'referencia': p.codigo,
-            'cantidad': p.cantidad,
-            'precio': p.precio,
-            'codigo': p.codigo
-        } for p in productos]
-        return pd.DataFrame(data) if data else pd.DataFrame(
-            columns=['producto', 'referencia', 'cantidad', 'precio', 'codigo']
-        )
+        data = []
+        for p in productos:
+            data.append({
+                'producto': p.nombre,
+                'referencia': p.referencia,
+                'codigo': p.codigo,
+                'cantidad': p.cantidad,
+                'precio': p.precio
+            })
+        return pd.DataFrame(data) if data else None
     except SQLAlchemyError as e:
         print(f"Error loading data: {e}")
         return None
     finally:
         db.close()
 
-def import_file_to_db(uploaded_file):
+def process_csv_data(file_path):
     """
-    Import data from various file formats (CSV, Excel) to database
+    Process the CSV file with specific encoding and format
     """
     try:
-        file_extension = os.path.splitext(uploaded_file.name)[1].lower()
+        df = pd.read_csv(file_path, sep=';', encoding='utf-8-sig')
 
-        # Save uploaded file to temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+        # Renombrar columnas según el archivo proporcionado
+        df = df.rename(columns={
+            'nombre': 'producto',
+            'refer': 'referencia',
+            'codigo': 'codigo',
+            'q_fin': 'cantidad',
+            'pvta1i': 'precio'
+        })
+
+        # Seleccionar solo las columnas que necesitamos
+        columns = ['producto', 'referencia', 'codigo', 'cantidad', 'precio']
+        df = df[columns]
+
+        # Limpiar y convertir datos
+        df['cantidad'] = pd.to_numeric(df['cantidad'], errors='coerce').fillna(0).astype(int)
+        df['precio'] = pd.to_numeric(df['precio'], errors='coerce').fillna(0).astype(float)
+
+        return df
+    except Exception as e:
+        print(f"Error processing CSV: {e}")
+        return None
+
+def import_file_to_db(uploaded_file):
+    """
+    Import data from CSV file to database
+    """
+    try:
+        # Guardar archivo temporal
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as temp_file:
             temp_file.write(uploaded_file.getvalue())
             temp_path = temp_file.name
 
         try:
-            if file_extension in ['.xlsx', '.xls']:
-                df = pd.read_excel(temp_path)
-            else:  # CSV
-                encodings = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1']
-                for encoding in encodings:
-                    try:
-                        print(f"Intentando leer CSV con codificación: {encoding}")
-                        df = pd.read_csv(
-                            temp_path,
-                            encoding=encoding,
-                            sep=';',
-                            dtype=str
-                        )
-                        break
-                    except UnicodeDecodeError:
-                        continue
-                    except Exception as e:
-                        print(f"Error con codificación {encoding}: {e}")
-                        continue
-                else:
-                    raise ValueError("No se pudo leer el archivo con ninguna codificación")
+            # Procesar datos
+            df = process_csv_data(temp_path)
+            if df is None:
+                return False
 
-            # Mapear columnas específicas del archivo CSV UFT
-            df = df.rename(columns={
-                'nombre': 'producto',
-                'refer': 'referencia',
-                'codigo': 'codigo',
-                'q_fin': 'cantidad',
-                'pvta1i': 'precio'
-            })
-
-            # Verificar columnas requeridas
-            required_columns = ['producto', 'cantidad', 'precio']
-            missing_columns = [col for col in required_columns if col not in df.columns]
-            if missing_columns:
-                raise ValueError(f"Faltan columnas requeridas: {missing_columns}")
-
-            # Limpiar y convertir datos
-            df['cantidad'] = pd.to_numeric(df['cantidad'].fillna('0').astype(str).str.replace(r'[^\d.-]', '', regex=True), errors='coerce').fillna(0).astype(int)
-            df['precio'] = pd.to_numeric(df['precio'].fillna('0').astype(str).str.replace(r'[^\d.-]', '', regex=True), errors='coerce').fillna(0).astype(float)
-
-            # Asegurar que el código sea string
-            df['codigo'] = df['codigo'].fillna('').astype(str)
-
-            # Preparar datos para la base de datos
+            # Guardar en base de datos
             db = get_db()
             try:
                 # Limpiar tabla existente
@@ -99,11 +83,10 @@ def import_file_to_db(uploaded_file):
                 for _, row in df.iterrows():
                     producto = Producto(
                         nombre=str(row['producto']),
+                        referencia=str(row['referencia']),
                         codigo=str(row['codigo']),
-                        categoria='General',  # Categoría por defecto
                         cantidad=int(row['cantidad']),
-                        precio=float(row['precio']),
-                        fecha_actualizacion=datetime.now()
+                        precio=float(row['precio'])
                     )
                     db.add(producto)
 
@@ -117,12 +100,15 @@ def import_file_to_db(uploaded_file):
                 db.close()
 
         finally:
-            # Limpiar archivo temporal
             os.unlink(temp_path)
 
     except Exception as e:
-        print(f"Error al procesar archivo: {str(e)}")
+        print(f"Error al importar archivo: {e}")
         return False
+
+def initialize_database():
+    """Initialize database and create tables"""
+    return init_db()
 
 def save_data(df):
     """
