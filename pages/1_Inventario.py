@@ -27,11 +27,10 @@ def main():
     mask = pd.Series(True, index=df.index)
 
     if search:
-        search_mask = (
-            df['producto'].str.contains(search, case=False, na=False) |
-            df['codigo'].str.contains(search, case=False, na=False) |
-            df['referencia'].str.contains(search, case=False, na=False)
-        )
+        search_mask = df.apply(lambda row: any(
+            str(search).lower() in str(value).lower() 
+            for value in row.values
+        ), axis=1)
         mask = mask & search_mask
 
     mask = mask & (df['precio'] >= precio_min) & (df['precio'] <= precio_max)
