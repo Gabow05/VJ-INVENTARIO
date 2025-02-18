@@ -8,7 +8,7 @@ deploymentTarget = "autoscale"
 run = ["sh", "-c", "streamlit run app.py"]
 
 [workflows]
-runButton = "Project"
+runButton = "Streamlit Server"
 
 [[workflows.workflow]]
 name = "Project"
@@ -31,7 +31,7 @@ task = "packager.installForAll"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "streamlit run app.py"
+args = "streamlit run app.py --server.address 0.0.0.0 --server.enableCORS=false --server.enableWebsocketCompression=false"
 waitForPort = 5000
 
 [[ports]]
