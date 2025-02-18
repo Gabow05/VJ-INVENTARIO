@@ -4,8 +4,12 @@ address = "0.0.0.0"
 port = 5000
 
 [theme]
-primaryColor = "#007bff"
+primaryColor = "#3BA8A8"  # Color turquesa del logo
 backgroundColor = "#ffffff"
 secondaryBackgroundColor = "#f8f9fa"
 textColor = "#212529"
 font = "sans serif"
+
+[theme.colors]
+accent = "#FF6B35"  # Color naranja del logo
+highlight = "#3BA8A8"  # Color turquesa del logo

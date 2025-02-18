@@ -62,55 +62,70 @@ def save_data(df):
     finally:
         db.close()
 
-def import_csv_to_db(file_path):
+def import_file_to_db(file_path):
     """
-    Import data from CSV file to database with encoding handling
+    Import data from various file formats (CSV, Excel) to database
     """
-    # Lista de codificaciones a intentar
+    file_extension = os.path.splitext(file_path)[1].lower()
+
+    # Lista de codificaciones para CSV
     encodings = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1']
 
-    for encoding in encodings:
+    try:
+        if file_extension in ['.xlsx', '.xls']:
+            print(f"Leyendo archivo Excel: {file_path}")
+            df = pd.read_excel(file_path)
+        else:  # Intentar leer como CSV con diferentes codificaciones
+            for encoding in encodings:
+                try:
+                    print(f"Intentando leer CSV con codificación: {encoding}")
+                    df = pd.read_csv(
+                        file_path,
+                        encoding=encoding,
+                        dtype={
+                            'producto': str,
+                            'categoria': str,
+                            'cantidad': str,  # Cambiado a str para manejar formato flexible
+                            'precio': str,    # Cambiado a str para manejar formato flexible
+                            'codigo': str
+                        }
+                    )
+                    break
+                except UnicodeDecodeError:
+                    print(f"Error de codificación con {encoding}")
+                    continue
+                except Exception as e:
+                    print(f"Error al procesar archivo con {encoding}: {str(e)}")
+                    continue
+            else:
+                print("No se pudo leer el archivo con ninguna codificación")
+                return False
+
+        # Validar y limpiar columnas
+        required_columns = ['producto', 'categoria', 'cantidad', 'precio', 'codigo']
+        if not all(col in df.columns for col in required_columns):
+            print(f"Columnas requeridas no encontradas. Columnas presentes: {df.columns.tolist()}")
+            return False
+
+        # Limpiar datos
+        df = df.dropna(subset=required_columns)
+
+        # Convertir y limpiar tipos de datos
         try:
-            print(f"Intentando leer CSV con codificación: {encoding}")
-            # Read CSV with explicit data types and encoding
-            df = pd.read_csv(
-                file_path,
-                encoding=encoding,
-                dtype={
-                    'producto': str,
-                    'categoria': str,
-                    'cantidad': int,
-                    'precio': float,
-                    'codigo': str
-                }
-            )
+            # Limpiar cantidad (remover caracteres no numéricos)
+            df['cantidad'] = pd.to_numeric(df['cantidad'].str.replace(r'[^\d.-]', '', regex=True), errors='coerce')
+            df['cantidad'] = df['cantidad'].fillna(0).astype(int)
 
-            # Validate required columns
-            required_columns = ['producto', 'categoria', 'cantidad', 'precio', 'codigo']
-            if not all(col in df.columns for col in required_columns):
-                print(f"Columnas requeridas no encontradas. Columnas presentes: {df.columns.tolist()}")
-                continue
-
-            # Clean data
-            df = df.dropna(subset=required_columns)
-
-            # Validate data types
-            try:
-                df['cantidad'] = df['cantidad'].astype(int)
-                df['precio'] = df['precio'].astype(float)
-            except ValueError as e:
-                print(f"Error al convertir tipos de datos: {e}")
-                continue
-
-            print(f"CSV leído exitosamente con codificación {encoding}")
-            return save_data(df)
-
-        except UnicodeDecodeError:
-            print(f"Error de codificación con {encoding}")
-            continue
+            # Limpiar precio (remover caracteres no numéricos excepto punto decimal)
+            df['precio'] = pd.to_numeric(df['precio'].str.replace(r'[^\d.-]', '', regex=True), errors='coerce')
+            df['precio'] = df['precio'].fillna(0).astype(float)
         except Exception as e:
-            print(f"Error al procesar CSV con {encoding}: {str(e)}")
-            continue
+            print(f"Error al convertir tipos de datos: {e}")
+            return False
 
-    print("No se pudo leer el archivo CSV con ninguna codificación")
-    return False
+        print("Archivo procesado exitosamente")
+        return save_data(df)
+
+    except Exception as e:
+        print(f"Error al procesar archivo: {str(e)}")
+        return False
