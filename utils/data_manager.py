@@ -22,17 +22,19 @@ def load_data():
             'codigo': p.codigo,
             'fecha': p.fecha_actualizacion
         } for p in productos]
-        return pd.DataFrame(data)
+        return pd.DataFrame(data) if data else pd.DataFrame(columns=['producto', 'categoria', 'cantidad', 'precio', 'codigo', 'fecha'])
     except Exception as e:
         print(f"Error loading data: {e}")
         return None
     finally:
-        db.close()
+        if 'db' in locals():
+            db.close()
 
 def save_data(df):
     """
     Save inventory data to database
     """
+    db = None
     try:
         db = get_db()
         # Clear existing products
@@ -54,10 +56,12 @@ def save_data(df):
         return True
     except Exception as e:
         print(f"Error saving data: {e}")
-        db.rollback()
+        if db:
+            db.rollback()
         return False
     finally:
-        db.close()
+        if db:
+            db.close()
 
 def import_csv_to_db(file_path):
     """
@@ -65,6 +69,13 @@ def import_csv_to_db(file_path):
     """
     try:
         df = pd.read_csv(file_path)
+        df = df.rename(columns={
+            'producto': 'producto',
+            'categoria': 'categoria',
+            'cantidad': 'cantidad',
+            'precio': 'precio',
+            'codigo': 'codigo'
+        })
         return save_data(df)
     except Exception as e:
         print(f"Error importing CSV: {e}")
