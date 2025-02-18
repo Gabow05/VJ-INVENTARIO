@@ -88,13 +88,8 @@ def import_file_to_db(uploaded_file):
                         df = pd.read_csv(
                             temp_path,
                             encoding=encoding,
-                            dtype={
-                                'producto': str,
-                                'categoria': str,
-                                'cantidad': str,
-                                'precio': str,
-                                'codigo': str
-                            }
+                            sep=';',  # Usar punto y coma como separador
+                            dtype=str  # Leer todo como string inicialmente
                         )
                         break
                     except UnicodeDecodeError:
@@ -105,13 +100,40 @@ def import_file_to_db(uploaded_file):
                 else:
                     raise ValueError("No se pudo leer el archivo con ninguna codificación")
 
-            # Validar y limpiar columnas
-            required_columns = ['producto', 'categoria', 'cantidad', 'precio', 'codigo']
+            # Mapear columnas según el formato del archivo
+            column_mappings = {
+                # CSV UFT format
+                'nombre': 'producto',
+                'refer': 'referencia',
+                'q_fin': 'cantidad',
+                'pvta1i': 'precio',
+                'codigo': 'codigo',
+                'categoria': 'categoria',
+                # Agregar más mapeos según otros formatos
+            }
+
+            # Renombrar columnas si existen
+            for old_col, new_col in column_mappings.items():
+                if old_col in df.columns:
+                    df[new_col] = df[old_col]
+
+            # Asegurar columnas requeridas
+            required_columns = ['producto', 'cantidad', 'precio', 'codigo']
+
+            # Si no existe la columna producto pero existe nombre, usar nombre
+            if 'producto' not in df.columns and 'nombre' in df.columns:
+                df['producto'] = df['nombre']
+
+            # Si no existe categoría, usar una por defecto
+            if 'categoria' not in df.columns:
+                df['categoria'] = 'General'
+
+            # Verificar columnas requeridas
             if not all(col in df.columns for col in required_columns):
                 raise ValueError(f"Columnas requeridas no encontradas. Columnas presentes: {df.columns.tolist()}")
 
             # Limpiar datos
-            df = df.dropna(subset=required_columns)
+            df = df.dropna(subset=['producto'])  # Solo eliminar filas sin producto
 
             # Convertir y limpiar tipos de datos
             df['cantidad'] = pd.to_numeric(df['cantidad'].str.replace(r'[^\d.-]', '', regex=True), errors='coerce')
@@ -119,6 +141,10 @@ def import_file_to_db(uploaded_file):
 
             df['precio'] = pd.to_numeric(df['precio'].str.replace(r'[^\d.-]', '', regex=True), errors='coerce')
             df['precio'] = df['precio'].fillna(0).astype(float)
+
+            # Seleccionar y ordenar columnas
+            final_columns = ['producto', 'categoria', 'cantidad', 'precio', 'codigo']
+            df = df[final_columns]
 
             return save_data(df)
 
