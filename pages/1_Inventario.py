@@ -25,15 +25,11 @@ def main():
     col1, col2 = st.columns([2,1])
     with col1:
         search = st.text_input("🔍 Buscar producto", "")
-    with col2:
-        category = st.selectbox("Categoría", ["Todas"] + list(df['categoria'].unique()))
 
     # Filter data
     filtered_df = df.copy()
     if search:
-        filtered_df = filtered_df[filtered_df['producto'].str.contains(search, case=False)]
-    if category != "Todas":
-        filtered_df = filtered_df[filtered_df['categoria'] == category]
+        filtered_df = filtered_df[filtered_df['producto'].str.contains(search, case=False, na=False)]
 
     # Display inventory table with styling
     st.dataframe(
@@ -41,8 +37,11 @@ def main():
         use_container_width=True,
         hide_index=True,
         column_config={
-            "producto": "Producto",
-            "categoria": "Categoría",
+            "producto": st.column_config.TextColumn(
+                "Producto",
+                width="large"
+            ),
+            "referencia": "Referencia",
             "cantidad": st.column_config.NumberColumn(
                 "Cantidad",
                 help="Productos con cantidad 0 se muestran en rojo"
