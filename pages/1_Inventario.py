@@ -42,7 +42,8 @@ def main():
     with col1:
         st.metric("Total Productos", len(filtered_df))
     with col2:
-        st.metric("Valor Total", f"${filtered_df['precio'].sum():,.2f}")
+        valor_total = (filtered_df['precio'] * filtered_df['cantidad']).sum()
+        st.metric("Valor Total", f"${valor_total:,.2f}")
     with col3:
         st.metric("Productos Agotados", len(filtered_df[filtered_df['cantidad'] == 0]))
     with col4:

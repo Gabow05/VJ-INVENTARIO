@@ -23,7 +23,7 @@ if os.path.exists(logo_path):
     try:
         with open(logo_path, "rb") as f:
             logo_bytes = f.read()
-        st.sidebar.image(logo_bytes, width=200, caption="Variedades Juancho La Octava")
+        st.sidebar.image(logo_bytes, width=200, caption="Variedades Juancho View")
     except Exception as e:
         st.sidebar.title("Variedades Juancho La Octava")
         print(f"Error loading logo: {e}")
