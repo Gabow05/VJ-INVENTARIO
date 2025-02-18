@@ -2,17 +2,18 @@ import pandas as pd
 import os
 from .models import get_db, Producto, Venta, init_db
 from datetime import datetime
+from sqlalchemy.exc import SQLAlchemyError
 
 def initialize_database():
     """Initialize database and create tables"""
-    init_db()
+    return init_db()
 
 def load_data():
     """
     Load inventory data from database
     """
+    db = get_db()
     try:
-        db = get_db()
         productos = db.query(Producto).all()
         data = [{
             'producto': p.nombre,
@@ -22,21 +23,21 @@ def load_data():
             'codigo': p.codigo,
             'fecha': p.fecha_actualizacion
         } for p in productos]
-        return pd.DataFrame(data) if data else pd.DataFrame(columns=['producto', 'categoria', 'cantidad', 'precio', 'codigo', 'fecha'])
-    except Exception as e:
+        return pd.DataFrame(data) if data else pd.DataFrame(
+            columns=['producto', 'categoria', 'cantidad', 'precio', 'codigo', 'fecha']
+        )
+    except SQLAlchemyError as e:
         print(f"Error loading data: {e}")
         return None
     finally:
-        if 'db' in locals():
-            db.close()
+        db.close()
 
 def save_data(df):
     """
     Save inventory data to database
     """
-    db = None
+    db = get_db()
     try:
-        db = get_db()
         # Clear existing products
         db.query(Producto).delete()
 
@@ -45,8 +46,8 @@ def save_data(df):
             producto = Producto(
                 nombre=row['producto'],
                 categoria=row['categoria'],
-                cantidad=row['cantidad'],
-                precio=row['precio'],
+                cantidad=int(row['cantidad']),
+                precio=float(row['precio']),
                 codigo=row['codigo'],
                 fecha_actualizacion=datetime.now()
             )
@@ -54,28 +55,36 @@ def save_data(df):
 
         db.commit()
         return True
-    except Exception as e:
+    except SQLAlchemyError as e:
         print(f"Error saving data: {e}")
-        if db:
-            db.rollback()
+        db.rollback()
         return False
     finally:
-        if db:
-            db.close()
+        db.close()
 
 def import_csv_to_db(file_path):
     """
     Import data from CSV file to database
     """
     try:
-        df = pd.read_csv(file_path)
-        df = df.rename(columns={
-            'producto': 'producto',
-            'categoria': 'categoria',
-            'cantidad': 'cantidad',
-            'precio': 'precio',
-            'codigo': 'codigo'
-        })
+        # Read CSV with explicit data types
+        df = pd.read_csv(
+            file_path,
+            dtype={
+                'producto': str,
+                'categoria': str,
+                'cantidad': int,
+                'precio': float,
+                'codigo': str
+            }
+        )
+
+        # Validate required columns
+        required_columns = ['producto', 'categoria', 'cantidad', 'precio', 'codigo']
+        if not all(col in df.columns for col in required_columns):
+            print("Missing required columns in CSV")
+            return False
+
         return save_data(df)
     except Exception as e:
         print(f"Error importing CSV: {e}")

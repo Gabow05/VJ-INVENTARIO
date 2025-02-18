@@ -4,11 +4,18 @@ from sqlalchemy.orm import sessionmaker, relationship
 import os
 from datetime import datetime
 
+# Configuración de la URL de la base de datos con SSL
+database_url = os.environ['DATABASE_URL']
+if "?" in database_url:
+    database_url += "&sslmode=require"
+else:
+    database_url += "?sslmode=require"
+
 Base = declarative_base()
 
 class Producto(Base):
     __tablename__ = 'productos'
-    
+
     id = Column(Integer, primary_key=True)
     codigo = Column(String, unique=True, nullable=False)
     nombre = Column(String, nullable=False)
@@ -19,26 +26,32 @@ class Producto(Base):
 
 class Venta(Base):
     __tablename__ = 'ventas'
-    
+
     id = Column(Integer, primary_key=True)
     producto_id = Column(Integer, ForeignKey('productos.id'))
     cantidad = Column(Integer, nullable=False)
     precio_unitario = Column(Float, nullable=False)
     total = Column(Float, nullable=False)
     fecha = Column(DateTime, default=datetime.utcnow)
-    
+
     producto = relationship("Producto")
 
-# Initialize database
-engine = create_engine(os.environ['DATABASE_URL'])
-SessionLocal = sessionmaker(bind=engine)
+# Configuración de la base de datos
+engine = create_engine(database_url, pool_pre_ping=True)
+SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 def init_db():
-    Base.metadata.create_all(engine)
+    """Inicializa la base de datos creando todas las tablas necesarias"""
+    try:
+        Base.metadata.create_all(engine)
+        return True
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+        return False
 
 def get_db():
-    db = SessionLocal()
-    try:
-        return db
-    finally:
-        db.close()
+    """
+    Crea y retorna una nueva sesión de base de datos.
+    La sesión debe ser cerrada por el llamador cuando termine de usarla.
+    """
+    return SessionLocal()
