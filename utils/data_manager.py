@@ -1,3 +1,4 @@
+
 import pandas as pd
 import os
 from .models import get_db, Producto, init_db
@@ -30,56 +31,122 @@ def load_data():
 
 def process_csv_data(file_path):
     """
-    Process the CSV file with specific encoding and format
+    Process the CSV file with multiple encodings and formats
+    """
+    encodings = ['utf-8-sig', 'latin1', 'iso-8859-1', 'cp1252']
+    separators = [';', ',', '\t']
+    
+    for encoding in encodings:
+        for sep in separators:
+            try:
+                df = pd.read_csv(file_path, sep=sep, encoding=encoding, on_bad_lines='skip')
+                
+                # Try to identify and rename columns
+                expected_columns = {'nombre', 'refer', 'codigo', 'q_fin', 'pvta1i'}
+                actual_columns = set(df.columns)
+                
+                # Check if we have at least some of the expected columns
+                if any(col in actual_columns for col in expected_columns):
+                    # Rename columns according to the expected format
+                    column_mapping = {
+                        'nombre': 'producto',
+                        'refer': 'referencia',
+                        'codigo': 'codigo',
+                        'q_fin': 'cantidad',
+                        'pvta1i': 'precio'
+                    }
+                    
+                    df = df.rename(columns=column_mapping)
+                    
+                    # Select needed columns, using only those that exist
+                    needed_columns = ['producto', 'referencia', 'codigo', 'cantidad', 'precio']
+                    existing_columns = [col for col in needed_columns if col in df.columns]
+                    df = df[existing_columns]
+                    
+                    # Fill missing columns with default values
+                    for col in needed_columns:
+                        if col not in df.columns:
+                            df[col] = ''
+                    
+                    # Clean and convert data
+                    df['cantidad'] = pd.to_numeric(df['cantidad'], errors='coerce').fillna(0).astype(int)
+                    df['precio'] = pd.to_numeric(df['precio'], errors='coerce').fillna(0).astype(float)
+                    
+                    return df
+                
+            except Exception as e:
+                continue
+                
+    raise Exception("No se pudo procesar el archivo. Formato no compatible.")
+
+def process_excel_data(file_path):
+    """
+    Process Excel files
     """
     try:
-        df = pd.read_csv(file_path, sep=';', encoding='utf-8-sig')
-
-        # Renombrar columnas según el archivo proporcionado
-        df = df.rename(columns={
-            'nombre': 'producto',
-            'refer': 'referencia',
-            'codigo': 'codigo',
-            'q_fin': 'cantidad',
-            'pvta1i': 'precio'
-        })
-
-        # Seleccionar solo las columnas que necesitamos
-        columns = ['producto', 'referencia', 'codigo', 'cantidad', 'precio']
-        df = df[columns]
-
-        # Limpiar y convertir datos
-        df['cantidad'] = pd.to_numeric(df['cantidad'], errors='coerce').fillna(0).astype(int)
-        df['precio'] = pd.to_numeric(df['precio'], errors='coerce').fillna(0).astype(float)
-
-        return df
+        df = pd.read_excel(file_path, engine='openpyxl')
+        
+        # Try to identify and rename columns similar to CSV processing
+        expected_columns = {'nombre', 'refer', 'codigo', 'q_fin', 'pvta1i'}
+        actual_columns = set(df.columns)
+        
+        if any(col in actual_columns for col in expected_columns):
+            column_mapping = {
+                'nombre': 'producto',
+                'refer': 'referencia',
+                'codigo': 'codigo',
+                'q_fin': 'cantidad',
+                'pvta1i': 'precio'
+            }
+            
+            df = df.rename(columns=column_mapping)
+            
+            needed_columns = ['producto', 'referencia', 'codigo', 'cantidad', 'precio']
+            existing_columns = [col for col in needed_columns if col in df.columns]
+            df = df[existing_columns]
+            
+            for col in needed_columns:
+                if col not in df.columns:
+                    df[col] = ''
+            
+            df['cantidad'] = pd.to_numeric(df['cantidad'], errors='coerce').fillna(0).astype(int)
+            df['precio'] = pd.to_numeric(df['precio'], errors='coerce').fillna(0).astype(float)
+            
+            return df
+            
     except Exception as e:
-        print(f"Error processing CSV: {e}")
-        return None
+        raise Exception(f"Error processing Excel file: {str(e)}")
 
 def import_file_to_db(uploaded_file):
     """
-    Import data from CSV file to database
+    Import data from file to database
     """
     try:
-        # Guardar archivo temporal
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as temp_file:
+        # Save temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1].lower()) as temp_file:
             temp_file.write(uploaded_file.getvalue())
             temp_path = temp_file.name
 
         try:
-            # Procesar datos
-            df = process_csv_data(temp_path)
+            # Process based on file extension
+            file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+            if file_ext in ['.csv']:
+                df = process_csv_data(temp_path)
+            elif file_ext in ['.xls', '.xlsx']:
+                df = process_excel_data(temp_path)
+            else:
+                raise Exception("Formato de archivo no soportado")
+
             if df is None:
                 return False
 
-            # Guardar en base de datos
+            # Save to database
             db = get_db()
             try:
-                # Limpiar tabla existente
+                # Clean existing table
                 db.query(Producto).delete()
 
-                # Insertar nuevos productos
+                # Insert new products
                 for _, row in df.iterrows():
                     producto = Producto(
                         nombre=str(row['producto']),
@@ -123,11 +190,10 @@ def save_data(df):
         for _, row in df.iterrows():
             producto = Producto(
                 nombre=row['producto'],
-                categoria=row['categoria'],
-                cantidad=int(row['cantidad']),
-                precio=float(row['precio']),
+                referencia=row['referencia'],
                 codigo=row['codigo'],
-                fecha_actualizacion=datetime.now()
+                cantidad=int(row['cantidad']),
+                precio=float(row['precio'])
             )
             db.add(producto)
 

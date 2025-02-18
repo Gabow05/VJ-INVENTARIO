@@ -24,10 +24,24 @@ def main():
 
     # File upload section
     st.subheader("Importar Datos de Inventario")
+    st.markdown("""
+    ### Formato del archivo
+    El archivo debe contener las siguientes columnas:
+    - nombre o producto
+    - refer o referencia
+    - codigo
+    - q_fin o cantidad
+    - pvta1i o precio
+    
+    Se aceptan archivos en formato:
+    - CSV (separado por comas o punto y coma)
+    - Excel (.xls, .xlsx)
+    """)
+    
     uploaded_file = st.file_uploader(
         "Seleccione archivo (CSV o Excel)",
         type=['csv', 'xlsx', 'xls'],
-        help="El archivo debe incluir las columnas: producto, categoria, cantidad, precio, codigo"
+        help="Se intentarán detectar automáticamente las columnas y el formato", codigo"
     )
 
     if uploaded_file is not None:
