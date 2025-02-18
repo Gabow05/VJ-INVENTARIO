@@ -1,4 +1,3 @@
-
 import pandas as pd
 import os
 from .models import get_db, Producto, init_db
@@ -35,16 +34,16 @@ def process_csv_data(file_path):
     """
     encodings = ['utf-8-sig', 'latin1', 'iso-8859-1', 'cp1252']
     separators = [';', ',', '\t']
-    
+
     for encoding in encodings:
         for sep in separators:
             try:
                 df = pd.read_csv(file_path, sep=sep, encoding=encoding, on_bad_lines='skip')
-                
+
                 # Try to identify and rename columns
                 expected_columns = {'nombre', 'refer', 'codigo', 'q_fin', 'pvta1i'}
                 actual_columns = set(df.columns)
-                
+
                 # Check if we have at least some of the expected columns
                 if any(col in actual_columns for col in expected_columns):
                     # Rename columns according to the expected format
@@ -55,28 +54,28 @@ def process_csv_data(file_path):
                         'q_fin': 'cantidad',
                         'pvta1i': 'precio'
                     }
-                    
+
                     df = df.rename(columns=column_mapping)
-                    
+
                     # Select needed columns, using only those that exist
                     needed_columns = ['producto', 'referencia', 'codigo', 'cantidad', 'precio']
                     existing_columns = [col for col in needed_columns if col in df.columns]
                     df = df[existing_columns]
-                    
+
                     # Fill missing columns with default values
                     for col in needed_columns:
                         if col not in df.columns:
                             df[col] = ''
-                    
+
                     # Clean and convert data
                     df['cantidad'] = pd.to_numeric(df['cantidad'], errors='coerce').fillna(0).astype(int)
                     df['precio'] = pd.to_numeric(df['precio'], errors='coerce').fillna(0).astype(float)
-                    
+
                     return df
-                
+
             except Exception as e:
                 continue
-                
+
     raise Exception("No se pudo procesar el archivo. Formato no compatible.")
 
 def process_excel_data(file_path):
@@ -85,11 +84,11 @@ def process_excel_data(file_path):
     """
     try:
         df = pd.read_excel(file_path, engine='openpyxl')
-        
+
         # Try to identify and rename columns similar to CSV processing
         expected_columns = {'nombre', 'refer', 'codigo', 'q_fin', 'pvta1i'}
         actual_columns = set(df.columns)
-        
+
         if any(col in actual_columns for col in expected_columns):
             column_mapping = {
                 'nombre': 'producto',
@@ -98,22 +97,22 @@ def process_excel_data(file_path):
                 'q_fin': 'cantidad',
                 'pvta1i': 'precio'
             }
-            
+
             df = df.rename(columns=column_mapping)
-            
+
             needed_columns = ['producto', 'referencia', 'codigo', 'cantidad', 'precio']
             existing_columns = [col for col in needed_columns if col in df.columns]
             df = df[existing_columns]
-            
+
             for col in needed_columns:
                 if col not in df.columns:
                     df[col] = ''
-            
+
             df['cantidad'] = pd.to_numeric(df['cantidad'], errors='coerce').fillna(0).astype(int)
             df['precio'] = pd.to_numeric(df['precio'], errors='coerce').fillna(0).astype(float)
-            
+
             return df
-            
+
     except Exception as e:
         raise Exception(f"Error processing Excel file: {str(e)}")
 
@@ -148,10 +147,12 @@ def import_file_to_db(uploaded_file):
 
                 # Insert new products
                 for _, row in df.iterrows():
+                    # Asegurar que el código mantenga los ceros iniciales
+                    codigo = str(row['codigo']).zfill(5) if pd.notna(row['codigo']) else ''
                     producto = Producto(
                         nombre=str(row['producto']),
                         referencia=str(row['referencia']),
-                        codigo=str(row['codigo']),
+                        codigo=codigo,
                         cantidad=int(row['cantidad']),
                         precio=float(row['precio'])
                     )
@@ -188,10 +189,12 @@ def save_data(df):
 
         # Add new products
         for _, row in df.iterrows():
+            # Asegurar que el código mantenga los ceros iniciales
+            codigo = str(row['codigo']).zfill(5) if pd.notna(row['codigo']) else ''
             producto = Producto(
                 nombre=row['producto'],
                 referencia=row['referencia'],
-                codigo=row['codigo'],
+                codigo=codigo,
                 cantidad=int(row['cantidad']),
                 precio=float(row['precio'])
             )
