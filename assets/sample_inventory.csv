@@ -1,0 +1,11 @@
+producto,categoria,cantidad,precio,codigo,fecha
+Laptop HP,Electrónicos,10,999.99,EL001,2024-01-15
+Mouse Inalámbrico,Accesorios,50,24.99,AC001,2024-01-15
+Teclado Mecánico,Accesorios,30,89.99,AC002,2024-01-15
+Monitor 24",Electrónicos,15,299.99,EL002,2024-01-15
+Disco Duro 1TB,Almacenamiento,25,79.99,AL001,2024-01-15
+Memoria USB 32GB,Almacenamiento,100,19.99,AL002,2024-01-15
+Audífonos Bluetooth,Accesorios,40,59.99,AC003,2024-01-15
+Webcam HD,Accesorios,20,49.99,AC004,2024-01-15
+Tablet Android,Electrónicos,12,399.99,EL003,2024-01-15
+Router WiFi,Redes,8,129.99,RE001,2024-01-15
