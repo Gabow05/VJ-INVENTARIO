@@ -1,15 +1,12 @@
+
 [server]
 headless = true
 address = "0.0.0.0"
-port = 5000
+port = 8501
 
 [theme]
-primaryColor = "#3BA8A8"  # Color turquesa del logo
+primaryColor = "#3BA8A8"
 backgroundColor = "#ffffff"
 secondaryBackgroundColor = "#f8f9fa"
 textColor = "#212529"
 font = "sans serif"
-
-[theme.colors]
-accent = "#FF6B35"  # Color naranja del logo
-highlight = "#3BA8A8"  # Color turquesa del logo
