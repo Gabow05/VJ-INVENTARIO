@@ -41,7 +41,7 @@ def main():
     uploaded_file = st.file_uploader(
         "Seleccione archivo (CSV o Excel)",
         type=['csv', 'xlsx', 'xls'],
-        help="Se intentarán detectar automáticamente las columnas y el formato", codigo"
+        help="Se intentarán detectar automáticamente las columnas y el formato"
     )
 
     if uploaded_file is not None:
