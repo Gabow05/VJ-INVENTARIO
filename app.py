@@ -68,9 +68,10 @@ def main():
 
     with col2:
         st.subheader("🎯 Accesos Rápidos")
-        st.button("Ver Inventario", type="primary", key="ver_inventario")
-        st.button("Analizar Ventas", type="secondary", key="analizar_ventas")
-        st.button("Configurar Sistema", key="configurar")
+        if st.button("Ver Inventario", type="primary", key="ver_inventario"):
+            st.switch_page("pages/1_Inventario.py")
+        if st.button("Configurar Sistema", key="configurar"):
+            st.switch_page("pages/3_Configuracion.py")
 
 if __name__ == "__main__":
     main()
