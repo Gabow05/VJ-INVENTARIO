@@ -26,9 +26,14 @@ def main():
         precio_min = st.number_input("Precio mínimo", 0.0, value=0.0, step=1000.0)
     with col3:
         precio_max = st.number_input("Precio máximo", 0.0, value=float(df['precio'].max()), step=1000.0)
+    
+    hide_negative = st.checkbox("Ocultar productos con cantidad negativa", value=False)
 
     # Aplicar filtros
     mask = pd.Series(True, index=df.index)
+    
+    if hide_negative:
+        mask = mask & (df['cantidad'] >= 0)
 
     if search:
         search_mask = df.apply(lambda row: any(
@@ -49,7 +54,9 @@ def main():
         valor_total = (filtered_df['precio'] * filtered_df['cantidad']).sum()
         st.metric("Valor Total", f"${valor_total:,.2f}")
     with col3:
-        st.metric("Productos Agotados", len(filtered_df[filtered_df['cantidad'] == 0]))
+        agotados = len(filtered_df[filtered_df['cantidad'] == 0])
+        negativos = len(filtered_df[filtered_df['cantidad'] < 0])
+        st.metric(f"Productos Agotados/Negativos", f"{agotados}/{negativos}")
     with col4:
         st.metric("Precio Promedio", f"${filtered_df['precio'].mean():,.2f}")
 
