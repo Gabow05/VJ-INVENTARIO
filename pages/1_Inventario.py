@@ -27,13 +27,13 @@ def main():
     with col3:
         precio_max = st.number_input("Precio máximo", 0.0, value=float(df['precio'].max()), step=1000.0)
     
-    hide_negative = st.checkbox("Ocultar productos con cantidad negativa", value=False)
+    hide_zero_negative = st.checkbox("Ocultar productos con cantidad 0 o negativa", value=False)
 
     # Aplicar filtros
     mask = pd.Series(True, index=df.index)
     
-    if hide_negative:
-        mask = mask & (df['cantidad'] >= 0)
+    if hide_zero_negative:
+        mask = mask & (df['cantidad'] > 0)
 
     if search:
         search_mask = df.apply(lambda row: any(
