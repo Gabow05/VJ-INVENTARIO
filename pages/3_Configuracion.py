@@ -32,12 +32,12 @@ def main():
     - codigo
     - q_fin o cantidad
     - pvta1i o precio
-    
+
     Se aceptan archivos en formato:
     - CSV (separado por comas o punto y coma)
     - Excel (.xls, .xlsx)
     """)
-    
+
     uploaded_file = st.file_uploader(
         "Seleccione archivo (CSV o Excel)",
         type=['csv', 'xlsx', 'xls'],
@@ -72,7 +72,8 @@ def main():
             else:
                 st.error("❌ Formato de archivo no soportado")
         except Exception as e:
-            st.error(f"❌ Error al procesar el archivo: {str(e)}")
+            st.error("No se pudo procesar el archivo. Por favor, verifique el formato.")
+            print(f"Error detallado: {str(e)}")
 
     # System settings
     st.header("Configuración General")

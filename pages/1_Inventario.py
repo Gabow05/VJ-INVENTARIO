@@ -9,8 +9,12 @@ def main():
 
     # Load data
     df = load_data()
-    if df is None or df.empty:
-        st.warning("No hay datos de inventario disponibles. Por favor, importe datos en la sección de Configuración.")
+    try:
+        if df is None or df.empty:
+            st.info("📝 No hay datos de inventario disponibles. Por favor, importe datos en la sección de Configuración.")
+            return
+    except Exception as e:
+        st.error("Error al cargar datos. Por favor, intente nuevamente.")
         return
 
     # Búsqueda y filtros
